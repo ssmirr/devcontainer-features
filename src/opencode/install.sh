@@ -3,8 +3,6 @@ set -e
 
 VERSION="${VERSION:-latest}"
 PERMISSION="${PERMISSION:-allow}"
-WEB="${WEB:-true}"
-PORT="${PORT:-auto}"
 
 REMOTE_USER_HOME="${_REMOTE_USER_HOME:-/home/${_REMOTE_USER:-vscode}}"
 
@@ -42,14 +40,6 @@ fi
 
 opencode --version || { echo "ERROR: opencode binary not found after install"; exit 1; }
 
-# Persist feature options for the start script
-mkdir -p /usr/local/share/opencode
-cat > /usr/local/share/opencode/env <<EOF
-OPENCODE_WEB=${WEB}
-OPENCODE_PORT=${PORT}
-OPENCODE_PERMISSION=${PERMISSION}
-EOF
-
 # Symlink host config into the user's home so OpenCode picks it up
 OPENCODE_CONFIG_DIR="${REMOTE_USER_HOME}/.config/opencode"
 HOST_CONFIG_MOUNT="/usr/local/share/opencode/host-config"
@@ -63,59 +53,40 @@ fi
 # Ensure correct ownership for the remote user
 chown -R "${_REMOTE_USER:-vscode}:${_REMOTE_USER:-vscode}" "$(dirname "${OPENCODE_CONFIG_DIR}")" 2>/dev/null || true
 
-# Write the postStartCommand script
-# This runs after the container is fully up, so containerEnv and remoteEnv are available
-cat > /usr/local/share/opencode-start.sh <<'STARTSCRIPT'
+# Create start/stop convenience commands
+cat > /usr/local/bin/opencode-web <<'SCRIPT'
 #!/usr/bin/env bash
-
-# Load feature options saved at install time
-if [ -f /usr/local/share/opencode/env ]; then
-    set -a
-    . /usr/local/share/opencode/env
-    set +a
-fi
-
-if [ "${OPENCODE_WEB}" != "true" ]; then
-    exit 0
-fi
-
-# Get workspace name from the current working directory (set by Dev Containers)
 NAME=$(basename "$(pwd)")
+HASH=$(echo -n "${NAME}" | cksum | awk '{print $1}')
+PORT=$(( (HASH % 50000) + 10000 ))
 
-# Resolve port: "auto" hashes the project name into a stable port
-PORT="${OPENCODE_PORT}"
-if [ "${PORT}" = "auto" ]; then
-    HASH=$(echo -n "${NAME}" | cksum | awk '{print $1}')
-    PORT=$(( (HASH % 50000) + 10000 ))
+# Load permission from feature install
+PERM="allow"
+if [ -f /usr/local/share/opencode/env ]; then
+    . /usr/local/share/opencode/env
+    PERM="${OPENCODE_PERMISSION:-allow}"
 fi
 
+export OPENCODE_CONFIG_CONTENT="{\"permission\":\"${PERM}\"}"
+
 echo ""
-echo "  ╔══════════════════════════════════════════════╗"
-echo "  ║  OpenCode Web UI                             ║"
-printf "  ║  http://%s.opencode.local:%-5s              ║\n" "${NAME}" "${PORT}"
-printf "  ║  http://localhost:%-5s                      ║\n" "${PORT}"
-echo "  ╚══════════════════════════════════════════════╝"
+echo "  OpenCode Web UI"
+echo "  http://${NAME}.opencode.local:${PORT}"
+echo "  http://localhost:${PORT}"
 echo ""
+exec opencode web --port "${PORT}" --hostname 0.0.0.0
+SCRIPT
+chmod +x /usr/local/bin/opencode-web
 
-# Override permission with valid JSON (host config may be JSONC with comments)
-export OPENCODE_CONFIG_CONTENT="{\"permission\":\"${OPENCODE_PERMISSION:-allow}\"}"
+cat > /usr/local/bin/opencode-stop <<'SCRIPT'
+#!/usr/bin/env bash
+pkill -f "opencode web" 2>/dev/null && echo "OpenCode stopped." || echo "OpenCode is not running."
+SCRIPT
+chmod +x /usr/local/bin/opencode-stop
 
-# Start opencode web in background.
-# Close all file descriptors so the postStartCommand shell can exit cleanly.
-opencode web \
-    --port "${PORT}" \
-    --hostname "0.0.0.0" \
-    > /tmp/opencode-web.log 2>&1 </dev/null &
-
-# Wait briefly to confirm it started
-sleep 2
-if kill -0 $! 2>/dev/null; then
-    echo "OpenCode web UI started (PID: $!)"
-else
-    echo "ERROR: OpenCode web UI failed to start. Check /tmp/opencode-web.log"
-    cat /tmp/opencode-web.log
-fi
-STARTSCRIPT
-chmod +x /usr/local/share/opencode-start.sh
+# Save permission for the start script
+mkdir -p /usr/local/share/opencode
+echo "OPENCODE_PERMISSION=${PERMISSION}" > /usr/local/share/opencode/env
 
 echo "OpenCode feature installed successfully."
+echo "Run 'opencode-web' to start the web UI, Ctrl+C or 'opencode-stop' to stop it."
