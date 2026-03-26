@@ -11,7 +11,14 @@ REMOTE_USER_HOME="${_REMOTE_USER_HOME:-/home/${_REMOTE_USER:-vscode}}"
 echo "Installing OpenCode (version: ${VERSION})..."
 
 # Install OpenCode via official installer
-curl -fsSL https://opencode.ai/install | bash
+# Only pass VERSION to the installer if a specific version was requested.
+# The installer prepends 'v' to VERSION, so "latest" would become "vlatest".
+if [ "${VERSION}" = "latest" ]; then
+    unset VERSION
+    curl -fsSL https://opencode.ai/install | bash
+else
+    curl -fsSL https://opencode.ai/install | VERSION="${VERSION}" bash
+fi
 
 # Ensure opencode is in PATH
 if ! command -v opencode &>/dev/null; then
