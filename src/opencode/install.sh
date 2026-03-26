@@ -97,15 +97,11 @@ printf "  ║  http://localhost:%-5s                      ║\n" "${PORT}"
 echo "  ╚══════════════════════════════════════════════╝"
 echo ""
 
-# Daemonize opencode web -- use setsid to fully detach from the parent shell
-# so it survives when postStartCommand exits
-setsid opencode web \
+# Daemonize opencode web -- run in foreground since postStartCommand
+# is already managed by the Dev Container runtime in the background
+exec opencode web \
     --port "${PORT}" \
-    --hostname "0.0.0.0" \
-    > /tmp/opencode-web.log 2>&1 &
-disown
-
-echo "OpenCode web UI started (PID: $!). Log: /tmp/opencode-web.log"
+    --hostname "0.0.0.0"
 STARTSCRIPT
 chmod +x /usr/local/share/opencode-start.sh
 
