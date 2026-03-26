@@ -1,0 +1,39 @@
+{
+  "id": "opencode",
+  "version": "1.0.0",
+  "name": "OpenCode",
+  "description": "Installs OpenCode - the open source coding agent. Optionally starts the web UI on container start with an auto-derived port per project.",
+  "documentationURL": "https://opencode.ai/docs",
+  "options": {
+    "version": {
+      "type": "string",
+      "default": "latest",
+      "description": "OpenCode version to install (e.g. '1.2.27' or 'latest')"
+    },
+    "permission": {
+      "type": "string",
+      "default": "allow",
+      "description": "Default permission level for all actions",
+      "enum": ["allow", "ask", "deny"]
+    },
+    "web": {
+      "type": "boolean",
+      "default": true,
+      "description": "Start the OpenCode web UI automatically on container start"
+    },
+    "port": {
+      "type": "string",
+      "default": "auto",
+      "description": "Port for the web UI. 'auto' derives a stable port from the project name."
+    }
+  },
+  "mounts": [
+    {
+      "source": "${localEnv:HOME}${localEnv:USERPROFILE}/.config/opencode",
+      "target": "/usr/local/share/opencode/host-config",
+      "type": "bind"
+    }
+  ],
+  "entrypoint": "/usr/local/share/opencode-entrypoint.sh",
+  "installsAfter": ["ghcr.io/devcontainers/features/common-utils"]
+}
