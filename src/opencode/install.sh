@@ -19,14 +19,14 @@ else
     curl -fsSL https://opencode.ai/install | VERSION="${VERSION}" bash
 fi
 
-# Ensure opencode is in PATH
+# The installer places the binary in ~/.local/bin/ of whoever runs it (root during build).
+# Find it wherever it landed and make it globally available in /usr/local/bin/
 if ! command -v opencode &>/dev/null; then
-    for p in /usr/local/bin/opencode /root/.local/bin/opencode "${REMOTE_USER_HOME}/.local/bin/opencode"; do
-        if [ -f "$p" ]; then
-            ln -sf "$p" /usr/local/bin/opencode
-            break
-        fi
-    done
+    FOUND=$(find / -name "opencode" -type f -executable 2>/dev/null | head -1)
+    if [ -n "$FOUND" ]; then
+        cp "$FOUND" /usr/local/bin/opencode
+        chmod +x /usr/local/bin/opencode
+    fi
 fi
 
 opencode --version || echo "Warning: opencode installed but --version failed"
