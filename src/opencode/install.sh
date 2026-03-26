@@ -20,7 +20,18 @@ else
 fi
 
 # The installer places the binary in ~/.local/bin/ of whoever runs it (root during build).
-# Find it wherever it landed and make it globally available in /usr/local/bin/
+# Explicitly copy it to /usr/local/bin/ so it's available to all users.
+if ! command -v opencode &>/dev/null; then
+    for p in /root/.local/bin/opencode "${HOME}/.local/bin/opencode"; do
+        if [ -f "$p" ]; then
+            cp "$p" /usr/local/bin/opencode
+            chmod +x /usr/local/bin/opencode
+            break
+        fi
+    done
+fi
+
+# Last resort: search the entire filesystem
 if ! command -v opencode &>/dev/null; then
     FOUND=$(find / -name "opencode" -type f -executable 2>/dev/null | head -1)
     if [ -n "$FOUND" ]; then
@@ -29,7 +40,7 @@ if ! command -v opencode &>/dev/null; then
     fi
 fi
 
-opencode --version || echo "Warning: opencode installed but --version failed"
+opencode --version || { echo "ERROR: opencode binary not found after install"; exit 1; }
 
 # Persist feature options for the start script
 mkdir -p /usr/local/share/opencode
