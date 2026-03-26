@@ -97,11 +97,24 @@ printf "  ║  http://localhost:%-5s                      ║\n" "${PORT}"
 echo "  ╚══════════════════════════════════════════════╝"
 echo ""
 
-# Daemonize opencode web -- run in foreground since postStartCommand
-# is already managed by the Dev Container runtime in the background
-exec opencode web \
+# Override permission with valid JSON (host config may be JSONC with comments)
+export OPENCODE_CONFIG_CONTENT="{\"permission\":\"${OPENCODE_PERMISSION:-allow}\"}"
+
+# Start opencode web in background.
+# Close all file descriptors so the postStartCommand shell can exit cleanly.
+opencode web \
     --port "${PORT}" \
-    --hostname "0.0.0.0"
+    --hostname "0.0.0.0" \
+    > /tmp/opencode-web.log 2>&1 </dev/null &
+
+# Wait briefly to confirm it started
+sleep 2
+if kill -0 $! 2>/dev/null; then
+    echo "OpenCode web UI started (PID: $!)"
+else
+    echo "ERROR: OpenCode web UI failed to start. Check /tmp/opencode-web.log"
+    cat /tmp/opencode-web.log
+fi
 STARTSCRIPT
 chmod +x /usr/local/share/opencode-start.sh
 

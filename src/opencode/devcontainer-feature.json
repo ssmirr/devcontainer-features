@@ -1,6 +1,6 @@
 {
   "id": "opencode",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "name": "OpenCode",
   "description": "Installs OpenCode - the open source coding agent. Optionally starts the web UI on container start with an auto-derived port per project.",
   "documentationURL": "https://opencode.ai/docs",
